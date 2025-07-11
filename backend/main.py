@@ -395,3 +395,56 @@ async def serve_image(filename: str):
         )
     else:
         raise HTTPException(status_code=404, detail=f"Image not found: {filename}")
+
+
+class MinigameRequest(BaseModel):
+    quiz_id: str
+    game_prompt: str
+    theme: str = "Space Pirates"
+
+class MinigameResponse(BaseModel):
+    game_html: str
+    status: str
+    message: str
+
+
+@app.post("/api/generate-minigame", response_model=MinigameResponse)
+async def generate_minigame(req: MinigameRequest):
+    """Generate an interactive HTML minigame based on quiz questions"""
+    try:
+        # Get the quiz session
+        session = quiz_storage.get_session(req.quiz_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Quiz session not found")
+        
+        # Extract questions for the minigame
+        questions_data = []
+        for question in session.questions.values():
+            questions_data.append({
+                "original": question.original_text,
+                "rewritten": question.rewritten_text or question.original_text,
+                "answer": question.correct_answer,
+                "topic": question.topic
+            })
+        
+        # Generate the HTML minigame using LLM
+        html_content = await llm.generate_minigame_html(
+            questions_data, 
+            req.game_prompt, 
+            req.theme,
+            session.age
+        )
+        
+        return MinigameResponse(
+            game_html=html_content,
+            status="success",
+            message="Minigame generated successfully!"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error generating minigame: {e}")
+        return MinigameResponse(
+            game_html="<p>Error generating minigame</p>",
+            status="error",
+            message=f"Failed to generate minigame: {str(e)}"
+        )

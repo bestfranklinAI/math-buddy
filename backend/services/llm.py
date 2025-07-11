@@ -357,3 +357,288 @@ async def chat_with_context(message: str, history: List[dict], question_context:
         msgs.extend(history)
         msgs.append({"role": "user", "content": message})
         return await call_github_model(msgs, temperature=0.7)
+
+
+async def generate_minigame_html(questions_data: list, game_prompt: str, theme: str, age: int) -> str:
+    """Generate interactive HTML minigame based on quiz questions"""
+    if MOCK:
+        return f"""
+        <div style="text-align: center; padding: 20px; font-family: Arial;">
+            <h2>🎮 {theme} Math Adventure</h2>
+            <p>[Mock] {game_prompt}</p>
+            <button onclick="alert('Mock game!')">Start Game!</button>
+        </div>
+        """
+    
+    # Create a comprehensive prompt for the LLM
+    system_prompt = f"""
+You are creating a SIMPLE educational HTML5 game for children aged {age} with special educational needs (SEN). 
+The game must be EASY TO UNDERSTAND and SIMPLE TO PLAY with the theme '{theme}'.
+
+CRITICAL REQUIREMENTS - SEN ACCESSIBILITY:
+1. ONE clear instruction at a time (max 6-8 words)
+2. LARGE, colorful buttons (minimum 60px height)
+3. BIG, clear text (minimum 18px font size)
+4. HIGH contrast colors (dark text on light backgrounds)
+5. Simple click/tap interactions only (no drag & drop or complex gestures)
+6. Immediate positive feedback for every action
+7. NO time pressure or stress elements
+8. Clear visual indicators for what to do next
+9. Repetitive, predictable game patterns
+10. Success sounds and celebrations after each correct answer
+
+GAME STRUCTURE - KEEP IT SIMPLE:
+- Start with a big "START GAME" button
+- One math question at a time
+- 2-4 answer choices as large buttons
+- Instant feedback: "WELL DONE!" or "TRY AGAIN!"
+- Simple scoring: stars or smiley faces
+- "NEXT" button to continue
+- Celebration screen at the end
+
+INTERACTION STYLE:
+- Click to select answers (large touch targets)
+- Visual feedback when buttons are pressed
+- Simple hover effects (color changes)
+- No complex animations that might distract
+- Clear progression indicators (1 of 5, 2 of 5, etc.)
+
+VISUAL DESIGN:
+- Use emojis for visual appeal
+- Rounded corners on all elements
+- Bright, cheerful colors
+- Simple {theme} decorations (not overwhelming)
+- Large fonts: Comic Sans MS or Arial
+- Plenty of white space
+- Clear visual separation between elements
+
+INSTRUCTIONS STYLE:
+- Use simple words (reading age 6-8)
+- One sentence instructions
+- Visual cues with emojis
+- Positive, encouraging language
+- No complex grammar or long explanations
+
+The game should be based on: {game_prompt}
+
+Format: Return ONLY the complete HTML code with embedded CSS and JavaScript.
+Do not include any markdown code blocks or additional text.
+Do not include any thinking process or reasoning steps in your response.
+"""
+
+    # Format questions for the prompt
+    questions_text = "\n".join([
+        f"Math Problem {i+1}: {q['topic']} - {q['rewritten']} (Answer: {q['answer']})"
+        for i, q in enumerate(questions_data[:3])  # Limit to first 3 questions for simplicity
+    ])
+    
+    user_prompt = f"""
+Create a SIMPLE interactive HTML game that uses these math problems:
+
+{questions_text}
+
+GAME REQUEST: {game_prompt}
+THEME: {theme}
+AGE: {age} years old
+
+MAKE IT SIMPLE FOR SEN STUDENTS:
+- One question at a time
+- Big colorful buttons to click
+- Clear instructions (6-8 words max)
+- Happy sounds when correct
+- Encouraging messages like "Well done!" or "Great job!"
+- No rushing or time limits
+- Simple clicking only (no dragging)
+- Large text that's easy to read
+
+EXAMPLE SIMPLE GAMES:
+- Click the correct number to feed the {theme.lower()} character
+- Pop balloons with the right answer to help your {theme.lower()} friend
+- Choose the right door to help your character continue the adventure
+- Match pairs by clicking two cards with the same answer
+
+Remember: SIMPLE CLICKING + BIG BUTTONS + CLEAR WORDS + HAPPY SOUNDS = PERFECT!
+"""
+
+    if USE_LOCAL_LLM:
+        html_content = await call_ollama(user_prompt, system_prompt)
+    else:
+        try:
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ]
+            html_content = await call_github_model(messages, temperature=0.8)
+        except Exception as e:
+            logger.error(f"Minigame generation failed: {e}")
+            # Fallback to a simple, SEN-friendly template
+            html_content = f"""
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>{theme} Math Fun</title>
+                <style>
+                    body {{ 
+                        font-family: 'Comic Sans MS', Arial, sans-serif; 
+                        margin: 0; 
+                        padding: 20px; 
+                        background: linear-gradient(to bottom, #87CEEB, #98FB98);
+                        text-align: center;
+                        min-height: 100vh;
+                    }}
+                    .game-box {{ 
+                        max-width: 500px; 
+                        margin: 0 auto;
+                        background: white; 
+                        border-radius: 20px; 
+                        padding: 30px; 
+                        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+                        border: 5px solid #FFD700;
+                    }}
+                    .big-title {{ 
+                        font-size: 2.5em; 
+                        color: #333;
+                        margin-bottom: 20px;
+                        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+                    }}
+                    .simple-text {{ 
+                        font-size: 20px; 
+                        color: #555;
+                        margin: 15px 0;
+                        line-height: 1.5;
+                    }}
+                    .big-button {{ 
+                        padding: 20px 40px; 
+                        font-size: 24px; 
+                        background: #4CAF50; 
+                        color: white; 
+                        border: none; 
+                        border-radius: 15px; 
+                        cursor: pointer; 
+                        margin: 15px; 
+                        box-shadow: 0 5px 10px rgba(0,0,0,0.2);
+                        font-family: 'Comic Sans MS', Arial, sans-serif;
+                        font-weight: bold;
+                        min-width: 200px;
+                        min-height: 60px;
+                    }}
+                    .big-button:hover {{ 
+                        background: #45a049;
+                        transform: scale(1.05);
+                        transition: all 0.2s ease;
+                    }}
+                    .happy-emoji {{ 
+                        font-size: 3em; 
+                        margin: 20px 0;
+                        animation: bounce 2s infinite;
+                    }}
+                    @keyframes bounce {{
+                        0%, 20%, 50%, 80%, 100% {{ transform: translateY(0); }}
+                        40% {{ transform: translateY(-15px); }}
+                        60% {{ transform: translateY(-7px); }}
+                    }}
+                    .instruction {{ 
+                        background: #FFF9C4;
+                        border: 3px solid #FFD54F;
+                        border-radius: 15px;
+                        padding: 20px;
+                        margin: 20px 0;
+                        font-size: 18px;
+                        color: #333;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="game-box">
+                    <div class="happy-emoji">🎮</div>
+                    <h1 class="big-title">{theme} Math Fun!</h1>
+                    
+                    <div class="instruction">
+                        <strong>📝 Your Game Idea:</strong><br>
+                        {game_prompt}
+                    </div>
+                    
+                    <p class="simple-text">🌟 <strong>Made for age {age}</strong> 🌟</p>
+                    
+                    <div style="background: #E8F5E8; border-radius: 10px; padding: 15px; margin: 20px 0;">
+                        <p class="simple-text" style="margin: 5px 0;"><strong>✅ Easy to click</strong></p>
+                        <p class="simple-text" style="margin: 5px 0;"><strong>✅ Big buttons</strong></p>
+                        <p class="simple-text" style="margin: 5px 0;"><strong>✅ Happy sounds</strong></p>
+                        <p class="simple-text" style="margin: 5px 0;"><strong>✅ No time pressure</strong></p>
+                    </div>
+                    
+                    <button class="big-button" onclick="startDemo()">🚀 Try Demo</button>
+                    <button class="big-button" onclick="showHelp()" style="background: #2196F3;">❓ How to Play</button>
+                    
+                    <div id="demo-area" style="display: none; margin-top: 30px; padding: 20px; background: #F0F8FF; border-radius: 15px;">
+                        <div class="happy-emoji">😊</div>
+                        <h3 style="color: #333;">Demo Time!</h3>
+                        <p class="simple-text">Click the buttons to hear sounds!</p>
+                        <button onclick="playHappySound()" style="padding: 15px 25px; margin: 10px; font-size: 16px; border: none; background: #FF9800; color: white; border-radius: 10px; cursor: pointer;">🎵 Happy Sound</button>
+                        <button onclick="playSuccessSound()" style="padding: 15px 25px; margin: 10px; font-size: 16px; border: none; background: #4CAF50; color: white; border-radius: 10px; cursor: pointer;">🎉 Success Sound</button>
+                    </div>
+                    
+                    <script>
+                        function startDemo() {{
+                            const demo = document.getElementById('demo-area');
+                            demo.style.display = demo.style.display === 'none' ? 'block' : 'none';
+                            playHappySound();
+                        }}
+                        
+                        function showHelp() {{
+                            alert('� How to Play:\\n\\n1. Read the question\\n2. Click your answer\\n3. Get happy sounds for correct answers\\n4. Try again if wrong - no problem!\\n5. Have fun learning math!');
+                            playSuccessSound();
+                        }}
+                        
+                        function playHappySound() {{
+                            try {{
+                                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                                const oscillator = audioContext.createOscillator();
+                                const gainNode = audioContext.createGain();
+                                
+                                oscillator.connect(gainNode);
+                                gainNode.connect(audioContext.destination);
+                                
+                                // Happy sound - ascending notes
+                                oscillator.frequency.setValueAtTime(523, audioContext.currentTime);      // C
+                                oscillator.frequency.setValueAtTime(659, audioContext.currentTime + 0.15); // E
+                                oscillator.frequency.setValueAtTime(784, audioContext.currentTime + 0.3);  // G
+                                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+                                oscillator.start(audioContext.currentTime);
+                                oscillator.stop(audioContext.currentTime + 0.5);
+                            }} catch(e) {{
+                                console.log('Audio not supported');
+                            }}
+                        }}
+                        
+                        function playSuccessSound() {{
+                            try {{
+                                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                                const oscillator = audioContext.createOscillator();
+                                const gainNode = audioContext.createGain();
+                                
+                                oscillator.connect(gainNode);
+                                gainNode.connect(audioContext.destination);
+                                
+                                // Success fanfare
+                                oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+                                oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
+                                oscillator.frequency.setValueAtTime(1200, audioContext.currentTime + 0.2);
+                                gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+                                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+                                oscillator.start(audioContext.currentTime);
+                                oscillator.stop(audioContext.currentTime + 0.4);
+                            }} catch(e) {{
+                                console.log('Audio not supported');
+                            }}
+                        }}
+                    </script>
+                </div>
+            </body>
+            </html>
+            """
+    
+    return html_content

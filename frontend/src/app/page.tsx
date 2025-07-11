@@ -37,7 +37,19 @@ interface QuizResult {
   feedback: Array<{question_id: string; feedback: string}>;
 }
 
-type AppStage = 'upload' | 'quiz' | 'results' | 'assistant';
+interface MinigameRequest {
+  quiz_id: string;
+  game_prompt: string;
+  theme: string;
+}
+
+interface MinigameResponse {
+  game_html: string;
+  status: string;
+  message: string;
+}
+
+type AppStage = 'upload' | 'quiz' | 'results' | 'assistant' | 'minigame';
 
 export default function Home() {
   // Stage management
@@ -63,6 +75,11 @@ export default function Home() {
   const [chatMessage, setChatMessage] = useState('');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [chatLoading, setChatLoading] = useState(false);
+
+  // Minigame stage
+  const [gamePrompt, setGamePrompt] = useState('');
+  const [generatedGame, setGeneratedGame] = useState<string>('');
+  const [gameLoading, setGameLoading] = useState(false);
 
   // Handle file upload (drag & drop)
   const handleDrag = (e: React.DragEvent) => {
@@ -123,6 +140,15 @@ export default function Home() {
     } finally {
       setUploading(false);
     }
+  };
+
+  const uploadAndCreateMinigame = async () => {
+    if (!file) return;
+    
+    // First create the quiz data (which we need for the minigame)
+    await uploadAndCreateQuiz();
+    // Then navigate to minigame
+    setCurrentStage('minigame');
   };
 
   const handleQuestionAnswer = () => {
@@ -215,6 +241,43 @@ export default function Home() {
     }
   };
 
+  const generateMinigame = async () => {
+    if (!gamePrompt.trim() || !quizData) {
+      alert('Please enter a game description and ensure you have quiz data!');
+      return;
+    }
+    
+    setGameLoading(true);
+    try {
+      const response = await fetch('http://localhost:8000/api/generate-minigame', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          quiz_id: quizData.quiz_id,
+          game_prompt: gamePrompt,
+          theme: theme
+        }),
+      });
+      
+      if (!response.ok) throw new Error('Failed to generate minigame');
+      
+      const result: MinigameResponse = await response.json();
+      
+      if (result.status === 'success') {
+        setGeneratedGame(result.game_html);
+        playSound('success');
+      } else {
+        alert(result.message);
+        playSound('error');
+      }
+    } catch (error) {
+      alert('Error generating minigame. Please try again.');
+      playSound('error');
+    } finally {
+      setGameLoading(false);
+    }
+  };
+
   // Sound effects
   const playSound = (type: 'success' | 'click' | 'error') => {
     if (typeof window !== 'undefined') {
@@ -261,6 +324,9 @@ export default function Home() {
     setCurrentAnswer('');
     setQuizResult(null);
     setChatHistory([]);
+    setGamePrompt('');
+    setGeneratedGame('');
+    setGameLoading(false);
   };
 
   const handleSelect = (selectedTheme: string) => {
@@ -391,15 +457,46 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Create Quiz Button */}
-              <div className="text-center">
-                <button
-                  onClick={uploadAndCreateQuiz}
-                  disabled={!file || uploading}
-                  className="px-12 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xl font-semibold rounded-xl disabled:opacity-50 hover:shadow-lg transition-all duration-200 transform hover:scale-105"
-                >
-                  {uploading ? '🎨 Creating Your Quest...' : '🚀 Start Math Quest!'}
-                </button>
+              {/* Choose Learning Mode */}
+              <div className="text-center space-y-4">
+                <h3 className="text-2xl font-bold text-gray-800 mb-4">🎯 Choose Your Learning Adventure!</h3>
+                <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+                  {/* Traditional Quiz Option */}
+                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 rounded-xl p-6 hover:border-purple-400 transition-all cursor-pointer group">
+                    <div className="text-center space-y-3">
+                      <div className="text-6xl group-hover:animate-bounce">📚</div>
+                      <h4 className="text-xl font-bold text-gray-800">Traditional Quiz</h4>
+                      <p className="text-gray-600">Step-by-step questions with instant feedback and explanations</p>
+                      <button
+                        onClick={uploadAndCreateQuiz}
+                        disabled={!file || uploading}
+                        className="w-full px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-lg disabled:opacity-50 hover:shadow-lg transition-all"
+                      >
+                        {uploading ? '🎨 Creating Quiz...' : '📝 Start Quiz'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Minigame Option */}
+                  <div className="bg-gradient-to-br from-green-50 to-blue-50 border-2 border-green-200 rounded-xl p-6 hover:border-green-400 transition-all cursor-pointer group">
+                    <div className="text-center space-y-3">
+                      <div className="text-6xl group-hover:animate-bounce">🎮</div>
+                      <h4 className="text-xl font-bold text-gray-800">Interactive Minigame</h4>
+                      <p className="text-gray-600">Fun games where math becomes an adventure with your chosen theme</p>
+                      <button
+                        onClick={uploadAndCreateMinigame}
+                        disabled={!file || uploading}
+                        className="w-full px-6 py-3 bg-gradient-to-r from-green-500 to-blue-500 text-white font-semibold rounded-lg disabled:opacity-50 hover:shadow-lg transition-all"
+                      >
+                        {uploading ? '🎨 Creating Game...' : '🎮 Create Game'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                <p className="text-sm text-gray-500 mt-4">
+                  💡 Tip: You can switch between modes anytime during your learning session!
+                </p>
               </div>
             </div>
           )}
@@ -411,6 +508,14 @@ export default function Home() {
                 <h2 className="text-3xl font-bold text-gray-800 mb-2">
                   🎯 Question {currentQuestionIndex + 1} of {quizData.questions.length}
                 </h2>
+                <div className="flex justify-center space-x-4 mb-4">
+                  <button
+                    onClick={() => setCurrentStage('minigame')}
+                    className="px-4 py-2 bg-gradient-to-r from-green-500 to-blue-500 text-white text-sm font-semibold rounded-lg hover:shadow-lg transition-all"
+                  >
+                    🎮 Switch to Game Mode
+                  </button>
+                </div>
                 <div className="w-full bg-gray-200 rounded-full h-3 mb-6">
                   <div 
                     className="bg-gradient-to-r from-purple-500 to-pink-500 h-3 rounded-full transition-all duration-500"
@@ -500,6 +605,12 @@ export default function Home() {
                     🤖 Chat with Assistant
                   </button>
                   <button
+                    onClick={() => setCurrentStage('minigame')}
+                    className="px-8 py-4 bg-gradient-to-r from-green-500 to-blue-500 text-white text-lg font-semibold rounded-xl hover:shadow-lg transition-all"
+                  >
+                    🎮 Play Minigame
+                  </button>
+                  <button
                     onClick={resetQuiz}
                     className="px-8 py-4 bg-gradient-to-r from-gray-500 to-gray-600 text-white text-lg font-semibold rounded-xl hover:shadow-lg transition-all"
                   >
@@ -575,6 +686,122 @@ export default function Home() {
                   Send ✨
                 </button>
               </div>
+
+              <div className="text-center pt-4">
+                <button
+                  onClick={resetQuiz}
+                  className="px-6 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  🔄 Start New Quest
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Minigame Stage */}
+          {currentStage === 'minigame' && (
+            <div className="space-y-6">
+              <div className="text-center">
+                <h2 className="text-3xl font-bold text-gray-800 mb-2">
+                  🎮 {theme} Math Minigame
+                </h2>
+                <div className="flex justify-center space-x-4 mb-4">
+                  <button
+                    onClick={() => setCurrentStage('quiz')}
+                    className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-semibold rounded-lg hover:shadow-lg transition-all"
+                  >
+                    📚 Switch to Quiz Mode
+                  </button>
+                </div>
+                <p className="text-gray-600">
+                  Describe what kind of interactive game you'd like based on your quiz questions!
+                </p>
+              </div>
+
+              {!generatedGame ? (
+                <div className="space-y-6">
+                  {/* Game Prompt Input */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      What simple game would you like? (Keep it simple!)
+                    </label>
+                    <textarea
+                      value={gamePrompt}
+                      onChange={(e) => setGamePrompt(e.target.value)}
+                      placeholder="e.g., 'Click the right number to feed the space cat', 'Pop colorful balloons with correct answers', 'Help the dinosaur find the right door by clicking the answer', 'Match cards by clicking two with the same number'"
+                      rows={4}
+                      className="w-full border-2 border-gray-200 rounded-lg p-4 text-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 resize-none"
+                    />
+                  </div>
+
+                  {/* Generate Button */}
+                  <div className="text-center">
+                    <button
+                      onClick={generateMinigame}
+                      disabled={!gamePrompt.trim() || gameLoading}
+                      className="px-12 py-4 bg-gradient-to-r from-green-500 to-blue-500 text-white text-xl font-semibold rounded-xl disabled:opacity-50 hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+                    >
+                      {gameLoading ? '🎨 Creating Your Game...' : '🚀 Generate Minigame!'}
+                    </button>
+                  </div>
+
+                  {/* Example Ideas */}
+                  <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-l-4 border-blue-400 p-6 rounded-lg">
+                    <h3 className="font-semibold text-gray-800 mb-3">💡 Simple Game Ideas:</h3>
+                    <ul className="text-gray-700 space-y-2">
+                      <li>� <strong>Feed the Cat:</strong> Click the right number to give the cat food</li>
+                      <li>� <strong>Pop the Balloons:</strong> Click balloons with correct answers to pop them</li>
+                      <li>� <strong>Choose the Door:</strong> Help your character find the right door by clicking answers</li>
+                      <li>� <strong>Collect the Stars:</strong> Click on stars with the right numbers to collect them</li>
+                      <li>🧩 <strong>Match the Cards:</strong> Click two cards with the same answer to match them</li>
+                      <li>🚗 <strong>Drive the Car:</strong> Click the right answer to make your car move forward</li>
+                      <li>🎯 <strong>Hit the Target:</strong> Click the correct answer to hit the bullseye</li>
+                      <li>� <strong>Paint the Rainbow:</strong> Click colors in the right order using math</li>
+                    </ul>
+                    <p className="text-sm text-gray-600 mt-3 italic bg-yellow-50 p-2 rounded">
+                      ✨ <strong>Remember:</strong> Simple clicking + Big buttons + Happy sounds = Perfect for SEN students!
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Generated Game Display */}
+                  <div className="bg-white border-2 border-gray-200 rounded-lg overflow-hidden">
+                    <div className="bg-gray-50 px-4 py-2 flex justify-between items-center">
+                      <h3 className="font-semibold text-gray-800">🎮 Your Interactive Math Game</h3>
+                      <button
+                        onClick={() => {
+                          setGeneratedGame('');
+                          setGamePrompt('');
+                        }}
+                        className="text-sm px-3 py-1 bg-purple-500 text-white rounded hover:bg-purple-600 transition-colors"
+                      >
+                        🔄 Create New Game
+                      </button>
+                    </div>
+                    <div 
+                      className="w-full h-96 border-0"
+                      dangerouslySetInnerHTML={{ __html: generatedGame }}
+                    />
+                  </div>
+
+                  {/* Fullscreen Option */}
+                  <div className="text-center">
+                    <button
+                      onClick={() => {
+                        const newWindow = window.open('', '_blank');
+                        if (newWindow) {
+                          newWindow.document.write(generatedGame);
+                          newWindow.document.close();
+                        }
+                      }}
+                      className="px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-semibold rounded-lg hover:shadow-lg transition-all"
+                    >
+                      🖥️ Open in Full Screen
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="text-center pt-4">
                 <button
