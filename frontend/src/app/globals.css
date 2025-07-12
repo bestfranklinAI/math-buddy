@@ -35,6 +35,42 @@ body {
   20% { transform: rotate(-5deg); }
 }
 
+/* Motion Game Animations */
+@keyframes feedbackPop {
+  0% { 
+    opacity: 0; 
+    transform: translate(-50%, -50%) scale(0.5); 
+  }
+  10% { 
+    opacity: 1; 
+    transform: translate(-50%, -50%) scale(1.1); 
+  }
+  90% { 
+    opacity: 1; 
+    transform: translate(-50%, -50%) scale(1); 
+  }
+  100% { 
+    opacity: 0; 
+    transform: translate(-50%, -50%) scale(0.8); 
+  }
+}
+
+@keyframes floatUp {
+  0% { 
+    transform: translateY(0); 
+    opacity: 0.8; 
+  }
+  100% { 
+    transform: translateY(-200px); 
+    opacity: 0; 
+  }
+}
+
+@keyframes characterBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
 .animate-float {
   animation: float 3s ease-in-out infinite;
 }
@@ -71,6 +107,15 @@ body {
 
 .btn-magic:hover::before {
   left: 100%;
+}
+
+/* Webcam and motion detection styles */
+.motion-game video {
+  display: none;
+}
+
+.motion-game canvas {
+  border-radius: 10px;
 }
 
 /* Scrollbar styling */

@@ -16,7 +16,8 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "phi4-mini-reasoning:latest")
 # GitHub Models API configuration
 GITHUB_API_URL = "https://models.github.ai/inference"
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-MODEL_NAME = "openai/gpt-4.1-mini"
+MODEL_NAME = "openai/gpt-4.1-mini"  # Use gpt-4.1-mini for minigames
+MINIGAME_MODEL_NAME = "openai/gpt-4.1"  # Dedicated better model for minigame generation
 
 # Determine which mode to use
 if USE_LOCAL_LLM:
@@ -139,13 +140,16 @@ async def call_ollama(prompt: str, system_prompt: str = "") -> str:
         raise Exception(f"Local LLM error: {str(e)}")
 
 
-async def call_github_model(messages: List[dict], temperature: float = 0.7) -> str:
+async def call_github_model(messages: List[dict], temperature: float = 0.7, model_name: str = None) -> str:
     """Call GitHub Models API with the given messages"""
     try:
+        # Use specified model or default
+        selected_model = model_name or MODEL_NAME
+        
         # Increase timeout and use correct endpoint path
         async with httpx.AsyncClient(timeout=120) as client:
             payload = {
-                "model": MODEL_NAME,
+                "model": selected_model,
                 "messages": messages,
                 "temperature": temperature,
                 "top_p": 1.0
@@ -372,58 +376,57 @@ async def generate_minigame_html(questions_data: list, game_prompt: str, theme: 
     
     # Create a comprehensive prompt for the LLM
     system_prompt = f"""
-You are creating a SIMPLE educational HTML5 game for children aged {age} with special educational needs (SEN). 
-The game must be EASY TO UNDERSTAND and SIMPLE TO PLAY with the theme '{theme}'.
+You are creating a SIMPLE, VISUAL-FIRST educational minigame for children aged {age} with ADHD/dyslexia. 
+Transform math problems into a {theme}-themed interactive experience where gameplay > text.
 
-CRITICAL REQUIREMENTS - SEN ACCESSIBILITY:
-1. ONE clear instruction at a time (max 6-8 words)
-2. LARGE, colorful buttons (minimum 60px height)
-3. BIG, clear text (minimum 18px font size)
-4. HIGH contrast colors (dark text on light backgrounds)
-5. Simple click/tap interactions only (no drag & drop or complex gestures)
-6. Immediate positive feedback for every action
-7. NO time pressure or stress elements
-8. Clear visual indicators for what to do next
-9. Repetitive, predictable game patterns
-10. Success sounds and celebrations after each correct answer
+CORE DESIGN PRINCIPLES:
+1. VISUAL FIRST - Show, don't tell! Use animations/icons instead of text
+2. CRYSTAL CLEAR INSTRUCTIONS - Start with a dedicated instruction screen
+3. SIMPLE INTERACTIONS - Max 3 words per instruction 
+4. PHYSICS-BASED - Objects bounce, float, respond to clicks
+5. THEMATIC IMMERSION - Every element reinforces {theme}
+6. MICRO-ANIMATIONS - Animate every interaction
+7. GAMIFIED MATH - Problems emerge from gameplay, not Q&A
+8. ZERO READING REQUIRED - Replace text with symbols/visual cues
+9. BIG BUTTONS - Touch-friendly for all abilities (minimum 50px)
 
-GAME STRUCTURE - KEEP IT SIMPLE:
-- Start with a big "START GAME" button
-- One math question at a time
-- 2-4 answer choices as large buttons
-- Instant feedback: "WELL DONE!" or "TRY AGAIN!"
-- Simple scoring: stars or smiley faces
-- "NEXT" button to continue
-- Celebration screen at the end
+MANDATORY INSTRUCTION SCREEN:
+Create a welcoming instruction screen that appears first with:
+- Large, friendly title with theme emoji
+- 3-4 simple visual instructions using emojis + 1-2 words:
+  * "👆 Click" (with pointing hand animation)
+  * "🖱️ Drag" (with dragging motion)
+  * "🔍 Find" (with magnifying glass)
+  * "🎯 Goal: [simple objective]"
+- Giant "▶️ START" button
+- Gentle background music/sounds
+- Character introduction with friendly wave
 
-INTERACTION STYLE:
-- Click to select answers (large touch targets)
-- Visual feedback when buttons are pressed
-- Simple hover effects (color changes)
-- No complex animations that might distract
-- Clear progression indicators (1 of 5, 2 of 5, etc.)
+INSTRUCTION RULES:
+- Use emojis + 1-2 words maximum per instruction
+- Create visual demonstrations (animated arrows, highlighting)
+- "Click here" = 👆 Click + arrow pointing
+- "Drag this" = 🖱️ Drag + dragging animation
+- "Find answer" = 🔍 Find + magnifying glass effect
+- "Count items" = 🔢 Count + counting animation
+- Show examples before the real game starts
 
-VISUAL DESIGN:
-- Use emojis for visual appeal
-- Rounded corners on all elements
-- Bright, cheerful colors
-- Simple {theme} decorations (not overwhelming)
-- Large fonts: Comic Sans MS or Arial
-- Plenty of white space
-- Clear visual separation between elements
+GAME FEATURES:
+- Instruction screen → Demo level → Real gameplay
+- Visual feedback for every action
+- Celebration animations for success
+- Gentle "try again" for mistakes (no negative feedback)
+- Progress tracking with visual rewards
+- Easy restart/help buttons
 
-INSTRUCTIONS STYLE:
-- Use simple words (reading age 6-8)
-- One sentence instructions
-- Visual cues with emojis
-- Positive, encouraging language
-- No complex grammar or long explanations
+TECHNICAL:
+* Single HTML file with embedded CSS/JS
+* Touch/click optimized for tablets/phones
+* Smooth 60fps animations
+* Auto-scaling for different screen sizes
+* Accessibility friendly (high contrast, large text)
 
-The game should be based on: {game_prompt}
-
-Format: Return ONLY the complete HTML code with embedded CSS and JavaScript.
-Do not include any markdown code blocks or additional text.
-Do not include any thinking process or reasoning steps in your response.
+REMEMBER: Age {age} needs BIG visuals, SIMPLE words, and CLEAR goals!
 """
 
     # Format questions for the prompt
@@ -433,31 +436,27 @@ Do not include any thinking process or reasoning steps in your response.
     ])
     
     user_prompt = f"""
-Create a SIMPLE interactive HTML game that uses these math problems:
-
+CONVERT THESE MATH PROBLEMS INTO A SIMPLE VISUAL GAME:
 {questions_text}
 
-GAME REQUEST: {game_prompt}
 THEME: {theme}
-AGE: {age} years old
+GAME STYLE: {game_prompt}
 
-MAKE IT SIMPLE FOR SEN STUDENTS:
-- One question at a time
-- Big colorful buttons to click
-- Clear instructions (6-8 words max)
-- Happy sounds when correct
-- Encouraging messages like "Well done!" or "Great job!"
-- No rushing or time limits
-- Simple clicking only (no dragging)
-- Large text that's easy to read
+REQUIREMENTS:
+1. Replace ALL text instructions with emoji + 1-2 words
+2. Show math problems using themed visual objects
+3. Big, colorful buttons (min 60px height)
+4. Continuous background animation
+5. Character reacts to all player actions
+6. Sound effects for all interactions
 
-EXAMPLE SIMPLE GAMES:
-- Click the correct number to feed the {theme.lower()} character
-- Pop balloons with the right answer to help your {theme.lower()} friend
-- Choose the right door to help your character continue the adventure
-- Match pairs by clicking two cards with the same answer
+VISUAL INSTRUCTION EXAMPLES:
+- "Click the correct answer" → "👆 Click!"
+- "Drag the number" → "🖱️ Drag"
+- "Count the objects" → "🔢 Count"
+- "Find the solution" → "🔍 Find"
 
-Remember: SIMPLE CLICKING + BIG BUTTONS + CLEAR WORDS + HAPPY SOUNDS = PERFECT!
+OUTPUT: Complete HTML5 game with visual-first design
 """
 
     if USE_LOCAL_LLM:
@@ -468,7 +467,8 @@ Remember: SIMPLE CLICKING + BIG BUTTONS + CLEAR WORDS + HAPPY SOUNDS = PERFECT!
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ]
-            html_content = await call_github_model(messages, temperature=0.8)
+            # Use the better model specifically for minigame generation
+            html_content = await call_github_model(messages, temperature=0.8, model_name=MINIGAME_MODEL_NAME)
         except Exception as e:
             logger.error(f"Minigame generation failed: {e}")
             # Fallback to a simple, SEN-friendly template

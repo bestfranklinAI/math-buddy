@@ -48,7 +48,7 @@ Prototype for interactive math practice tailored for SEN (Special Educational Ne
    ```bash
    cd backend
    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   uvicorn main:app --reload --host 0.0.0.0 --port 8000
+   uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
    ```
 
 2. **Start the frontend development server** (in a new terminal)

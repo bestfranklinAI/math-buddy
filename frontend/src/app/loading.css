@@ -1,0 +1,23 @@
+/* Global CSS fixes for loading animation */
+@keyframes loading-slide {
+  0% { 
+    transform: translateX(-100%) scaleX(1); 
+  }
+  50% { 
+    transform: translateX(0%) scaleX(1); 
+  }
+  100% { 
+    transform: translateX(100%) scaleX(1); 
+  }
+}
+
+/* Ensure loading animation stays on top */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  backdrop-filter: blur(10px);
+}

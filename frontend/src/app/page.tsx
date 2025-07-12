@@ -1,6 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ThemePicker } from '../components/ThemePicker';
+import { LoadingAnimation } from '../components/LoadingAnimation';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -49,7 +50,7 @@ interface MinigameResponse {
   message: string;
 }
 
-type AppStage = 'upload' | 'quiz' | 'results' | 'assistant' | 'minigame';
+type AppStage = 'upload' | 'mode-select' | 'quiz' | 'results' | 'assistant' | 'minigame' | 'motion-game';
 
 export default function Home() {
   // Stage management
@@ -61,6 +62,11 @@ export default function Home() {
   const [theme, setTheme] = useState('Space Pirates');
   const [age, setAge] = useState(10);
   const [uploading, setUploading] = useState(false);
+  const [loadingType, setLoadingType] = useState<'upload' | 'quiz' | 'chat' | 'game' | 'motion'>('upload');
+  const [loadingMessage, setLoadingMessage] = useState('');
+  
+  // Processed quiz data (shared across all modes)
+  const [processedQuizData, setProcessedQuizData] = useState<QuizData | null>(null);
   
   // Quiz stage
   const [quizData, setQuizData] = useState<QuizData | null>(null);
@@ -80,6 +86,102 @@ export default function Home() {
   const [gamePrompt, setGamePrompt] = useState('');
   const [generatedGame, setGeneratedGame] = useState<string>('');
   const [gameLoading, setGameLoading] = useState(false);
+
+  // Motion game stage
+  const [motionGameController, setMotionGameController] = useState<any>(null);
+  const [motionGameLoading, setMotionGameLoading] = useState(false);
+
+  // Initialize motion games when stage changes
+  useEffect(() => {
+    if (currentStage === 'motion-game' && quizData && !motionGameController) {
+      // Dynamically load motion game scripts
+      const loadMotionGameScripts = async () => {
+        try {
+          setMotionGameLoading(true);
+          setLoadingType('motion');
+          setLoadingMessage('Setting up your motion games and camera...');
+          
+          // Load motion game scripts
+          const scripts = [
+            '/motion-games/motion-detector.js',
+            '/motion-games/enhanced-motion-detector.js',
+            '/motion-games/theme-manager.js',
+            '/motion-games/bubble-pop-game.js',
+            '/motion-games/enhanced-bubble-pop-game.js',
+            '/motion-games/side-to-side-game.js',
+            '/motion-games/number-line-jump-game.js',
+            '/motion-games/enhanced-number-line-jump-game.js',
+            '/motion-games/enhanced-physical-math-game.js',
+            '/motion-games/motion-game-controller.js'
+          ];
+
+          for (const scriptSrc of scripts) {
+            if (!document.querySelector(`script[src="${scriptSrc}"]`)) {
+              console.log(`Loading motion game script: ${scriptSrc}`);
+              const script = document.createElement('script');
+              script.src = scriptSrc;
+              script.async = false;
+              document.head.appendChild(script);
+              
+              await new Promise((resolve, reject) => {
+                script.onload = () => {
+                  console.log(`Successfully loaded: ${scriptSrc}`);
+                  resolve(undefined);
+                };
+                script.onerror = (error) => {
+                  console.error(`Failed to load: ${scriptSrc}`, error);
+                  reject(new Error(`Failed to load ${scriptSrc}`));
+                };
+              });
+            }
+          }
+
+          // Check if MotionGameController is available
+          if (!(window as any).MotionGameController) {
+            throw new Error('MotionGameController not found after loading scripts');
+          }
+
+          console.log('All motion game scripts loaded successfully');
+          console.log('Available classes:', {
+            MotionGameController: !!(window as any).MotionGameController,
+            BubblePopGame: !!(window as any).BubblePopGame,
+            EnhancedBubblePopGame: !!(window as any).EnhancedBubblePopGame,
+            MotionDetector: !!(window as any).MotionDetector,
+            ThemeManager: !!(window as any).ThemeManager
+          });
+
+          // Initialize motion game controller
+          const controller = new (window as any).MotionGameController('motion-game-container');
+          console.log('Motion game controller created');
+          
+          controller.init(quizData, theme);
+          console.log('Motion game controller initialized with data:', { questionsCount: quizData.questions.length, theme });
+          
+          controller.onGameComplete = (result: any) => {
+            // Handle game completion
+            console.log('Motion game completed:', result);
+            setCurrentStage('results');
+          };
+          
+          setMotionGameController(controller);
+        } catch (error) {
+          console.error('Failed to load motion game scripts:', error);
+          // Show user-friendly error message
+          setLoadingMessage('Unable to load motion games. Please refresh the page and try again.');
+          
+          // Fallback: redirect to results after a short delay
+          setTimeout(() => {
+            console.log('Falling back to results stage due to motion game loading failure');
+            setCurrentStage('results');
+          }, 3000);
+        } finally {
+          setMotionGameLoading(false);
+        }
+      };
+
+      loadMotionGameScripts();
+    }
+  }, [currentStage, quizData, theme, motionGameController]);
 
   // Handle file upload (drag & drop)
   const handleDrag = (e: React.DragEvent) => {
@@ -113,10 +215,13 @@ export default function Home() {
     }
   };
 
-  const uploadAndCreateQuiz = async () => {
+  const processFileForAllModes = async () => {
     if (!file) return;
     
     setUploading(true);
+    setLoadingType('upload');
+    setLoadingMessage('Processing your questions for all game modes...');
+    
     const formData = new FormData();
     formData.append('file', file);
     formData.append('theme', theme);
@@ -131,24 +236,39 @@ export default function Home() {
       if (!response.ok) throw new Error('Upload failed');
       
       const data: QuizData = await response.json();
-      setQuizData(data);
-      setCurrentStage('quiz');
+      setProcessedQuizData(data);
+      setCurrentStage('mode-select');
       playSound('success');
     } catch (error) {
-      alert('Error creating quiz. Please try again.');
+      alert('Error processing file. Please try again.');
       playSound('error');
     } finally {
       setUploading(false);
     }
   };
 
-  const uploadAndCreateMinigame = async () => {
-    if (!file) return;
-    
-    // First create the quiz data (which we need for the minigame)
-    await uploadAndCreateQuiz();
-    // Then navigate to minigame
-    setCurrentStage('minigame');
+  const startQuizMode = () => {
+    if (processedQuizData) {
+      setQuizData(processedQuizData);
+      setCurrentStage('quiz');
+      playSound('click');
+    }
+  };
+
+  const startMinigameMode = () => {
+    if (processedQuizData) {
+      setQuizData(processedQuizData);
+      setCurrentStage('minigame');
+      playSound('click');
+    }
+  };
+
+  const startMotionGameMode = () => {
+    if (processedQuizData) {
+      setQuizData(processedQuizData);
+      setCurrentStage('motion-game');
+      playSound('click');
+    }
   };
 
   const handleQuestionAnswer = () => {
@@ -199,6 +319,9 @@ export default function Home() {
     if (!chatMessage.trim()) return;
     
     setChatLoading(true);
+    setLoadingType('chat');
+    setLoadingMessage('Math Buddy is thinking about your question...');
+    
     const userMessage: ChatMessage = {
       role: 'user',
       content: chatMessage,
@@ -248,6 +371,9 @@ export default function Home() {
     }
     
     setGameLoading(true);
+    setLoadingType('game');
+    setLoadingMessage('Creating your custom math adventure...');
+    
     try {
       const response = await fetch('http://localhost:8000/api/generate-minigame', {
         method: 'POST',
@@ -327,6 +453,12 @@ export default function Home() {
     setGamePrompt('');
     setGeneratedGame('');
     setGameLoading(false);
+    
+    // Cleanup motion game controller
+    if (motionGameController) {
+      motionGameController.stop();
+      setMotionGameController(null);
+    }
   };
 
   const handleSelect = (selectedTheme: string) => {
@@ -459,44 +591,118 @@ export default function Home() {
 
               {/* Choose Learning Mode */}
               <div className="text-center space-y-4">
-                <h3 className="text-2xl font-bold text-gray-800 mb-4">🎯 Choose Your Learning Adventure!</h3>
-                <div className="grid md:grid-cols-2 gap-6 max-w-2xl mx-auto">
-                  {/* Traditional Quiz Option */}
-                  <div className="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 rounded-xl p-6 hover:border-purple-400 transition-all cursor-pointer group">
-                    <div className="text-center space-y-3">
-                      <div className="text-6xl group-hover:animate-bounce">📚</div>
-                      <h4 className="text-xl font-bold text-gray-800">Traditional Quiz</h4>
-                      <p className="text-gray-600">Step-by-step questions with instant feedback and explanations</p>
+                <h3 className="text-2xl font-bold text-gray-800 mb-4">🚀 Ready to Start Learning!</h3>
+                <div className="max-w-md mx-auto">
+                  <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl p-8 hover:border-indigo-400 transition-all">
+                    <div className="text-center space-y-4">
+                      <div className="text-6xl animate-bounce">🎯</div>
+                      <h4 className="text-xl font-bold text-gray-800">Process Your Questions</h4>
+                      <p className="text-gray-600">Get your questions ready for all learning modes!</p>
                       <button
-                        onClick={uploadAndCreateQuiz}
+                        onClick={processFileForAllModes}
                         disabled={!file || uploading}
-                        className="w-full px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-lg disabled:opacity-50 hover:shadow-lg transition-all"
+                        className="w-full px-8 py-4 bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-semibold rounded-lg disabled:opacity-50 hover:shadow-lg transition-all text-lg"
                       >
-                        {uploading ? '🎨 Creating Quiz...' : '📝 Start Quiz'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Minigame Option */}
-                  <div className="bg-gradient-to-br from-green-50 to-blue-50 border-2 border-green-200 rounded-xl p-6 hover:border-green-400 transition-all cursor-pointer group">
-                    <div className="text-center space-y-3">
-                      <div className="text-6xl group-hover:animate-bounce">🎮</div>
-                      <h4 className="text-xl font-bold text-gray-800">Interactive Minigame</h4>
-                      <p className="text-gray-600">Fun games where math becomes an adventure with your chosen theme</p>
-                      <button
-                        onClick={uploadAndCreateMinigame}
-                        disabled={!file || uploading}
-                        className="w-full px-6 py-3 bg-gradient-to-r from-green-500 to-blue-500 text-white font-semibold rounded-lg disabled:opacity-50 hover:shadow-lg transition-all"
-                      >
-                        {uploading ? '🎨 Creating Game...' : '🎮 Create Game'}
+                        {uploading ? '🎨 Processing...' : '✨ Let\'s Go!'}
                       </button>
                     </div>
                   </div>
                 </div>
                 
                 <p className="text-sm text-gray-500 mt-4">
-                  💡 Tip: You can switch between modes anytime during your learning session!
+                  📚 After processing, you can try all three learning modes with the same questions!
                 </p>
+              </div>
+            </div>
+          )}
+
+          {/* Mode Selection Stage */}
+          {currentStage === 'mode-select' && processedQuizData && (
+            <div className="space-y-6">
+              <div className="text-center mb-8">
+                <h2 className="text-3xl font-bold text-gray-800 mb-4">🎯 Choose Your Learning Adventure!</h2>
+                <p className="text-lg text-gray-600 mb-6">
+                  Your questions are ready! Pick any mode below and switch anytime during your session.
+                </p>
+                <div className="bg-gradient-to-r from-green-100 to-blue-100 rounded-lg p-4 mb-6">
+                  <p className="text-sm text-gray-700">
+                    <strong>✨ Theme:</strong> {theme} &nbsp;|&nbsp; <strong>📊 Questions:</strong> {processedQuizData.questions.length} &nbsp;|&nbsp; <strong>🎂 Age:</strong> {age}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+                {/* Traditional Quiz Option */}
+                <div className="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 rounded-xl p-6 hover:border-purple-400 transition-all cursor-pointer group transform hover:scale-105">
+                  <div className="text-center space-y-4">
+                    <div className="text-6xl group-hover:animate-bounce">📚</div>
+                    <h4 className="text-xl font-bold text-gray-800">Traditional Quiz</h4>
+                    <p className="text-gray-600 text-sm leading-relaxed">
+                      Step through questions with instant feedback and detailed explanations
+                    </p>
+                    <div className="flex flex-wrap gap-1 justify-center text-xs">
+                      <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded">📖 Step-by-step</span>
+                      <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded">💡 Explanations</span>
+                    </div>
+                    <button
+                      onClick={startQuizMode}
+                      className="w-full px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-lg hover:shadow-lg transition-all"
+                    >
+                      📝 Start Quiz
+                    </button>
+                  </div>
+                </div>
+
+                {/* Motion Games Option */}
+                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-xl p-6 hover:border-blue-400 transition-all cursor-pointer group transform hover:scale-105">
+                  <div className="text-center space-y-4">
+                    <div className="text-6xl group-hover:animate-bounce">🎥</div>
+                    <h4 className="text-xl font-bold text-gray-800">Motion Games</h4>
+                    <p className="text-gray-600 text-sm leading-relaxed">
+                      Wave & move! Use your webcam to interact with math challenges
+                    </p>
+                    <div className="flex flex-wrap gap-1 justify-center text-xs">
+                      <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded">📹 Webcam</span>
+                      <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded">🏃 Active</span>
+                    </div>
+                    <button
+                      onClick={startMotionGameMode}
+                      className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-semibold rounded-lg hover:shadow-lg transition-all"
+                    >
+                      🎥 Start Motion
+                    </button>
+                  </div>
+                </div>
+
+                {/* Minigame Option */}
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-6 hover:border-green-400 transition-all cursor-pointer group transform hover:scale-105">
+                  <div className="text-center space-y-4">
+                    <div className="text-6xl group-hover:animate-bounce">🎮</div>
+                    <h4 className="text-xl font-bold text-gray-800">Custom Game</h4>
+                    <p className="text-gray-600 text-sm leading-relaxed">
+                      Create unique interactive adventures with AI-generated games
+                    </p>
+                    <div className="flex flex-wrap gap-1 justify-center text-xs">
+                      <span className="bg-green-100 text-green-700 px-2 py-1 rounded">🎨 Custom</span>
+                      <span className="bg-green-100 text-green-700 px-2 py-1 rounded">🤖 AI-made</span>
+                    </div>
+                    <button
+                      onClick={startMinigameMode}
+                      className="w-full px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold rounded-lg hover:shadow-lg transition-all"
+                    >
+                      🎮 Create Game
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="text-center mt-8">
+                <button
+                  onClick={() => setCurrentStage('upload')}
+                  className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-all"
+                >
+                  ← Back to Upload
+                </button>
               </div>
             </div>
           )}
@@ -508,12 +714,24 @@ export default function Home() {
                 <h2 className="text-3xl font-bold text-gray-800 mb-2">
                   🎯 Question {currentQuestionIndex + 1} of {quizData.questions.length}
                 </h2>
-                <div className="flex justify-center space-x-4 mb-4">
+                <div className="flex justify-center space-x-3 mb-4">
                   <button
-                    onClick={() => setCurrentStage('minigame')}
-                    className="px-4 py-2 bg-gradient-to-r from-green-500 to-blue-500 text-white text-sm font-semibold rounded-lg hover:shadow-lg transition-all"
+                    onClick={() => setCurrentStage('mode-select')}
+                    className="px-3 py-2 bg-gradient-to-r from-gray-500 to-gray-600 text-white text-sm font-semibold rounded-lg hover:shadow-lg transition-all"
                   >
-                    🎮 Switch to Game Mode
+                    🔄 Change Mode
+                  </button>
+                  <button
+                    onClick={startMotionGameMode}
+                    className="px-3 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-sm font-semibold rounded-lg hover:shadow-lg transition-all"
+                  >
+                    � Motion Games
+                  </button>
+                  <button
+                    onClick={startMinigameMode}
+                    className="px-3 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white text-sm font-semibold rounded-lg hover:shadow-lg transition-all"
+                  >
+                    🎮 Custom Game
                   </button>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-3 mb-6">
@@ -631,6 +849,26 @@ export default function Home() {
                 <p className="text-gray-600">
                   Ask me anything about math! I'm here to help you learn and grow.
                 </p>
+                <div className="flex justify-center space-x-3 mt-4">
+                  <button
+                    onClick={() => setCurrentStage('mode-select')}
+                    className="px-3 py-2 bg-gradient-to-r from-gray-500 to-gray-600 text-white text-sm font-semibold rounded-lg hover:shadow-lg transition-all"
+                  >
+                    🔄 Change Mode
+                  </button>
+                  <button
+                    onClick={startQuizMode}
+                    className="px-3 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-semibold rounded-lg hover:shadow-lg transition-all"
+                  >
+                    📝 Quiz Mode
+                  </button>
+                  <button
+                    onClick={startMotionGameMode}
+                    className="px-3 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-sm font-semibold rounded-lg hover:shadow-lg transition-all"
+                  >
+                    🎥 Motion Games
+                  </button>
+                </div>
               </div>
               
               <div className="bg-gray-50 rounded-lg p-4 h-96 overflow-y-auto space-y-4">
@@ -705,12 +943,24 @@ export default function Home() {
                 <h2 className="text-3xl font-bold text-gray-800 mb-2">
                   🎮 {theme} Math Minigame
                 </h2>
-                <div className="flex justify-center space-x-4 mb-4">
+                <div className="flex justify-center space-x-3 mb-4">
                   <button
-                    onClick={() => setCurrentStage('quiz')}
-                    className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-semibold rounded-lg hover:shadow-lg transition-all"
+                    onClick={() => setCurrentStage('mode-select')}
+                    className="px-3 py-2 bg-gradient-to-r from-gray-500 to-gray-600 text-white text-sm font-semibold rounded-lg hover:shadow-lg transition-all"
                   >
-                    📚 Switch to Quiz Mode
+                    🔄 Change Mode
+                  </button>
+                  <button
+                    onClick={startQuizMode}
+                    className="px-3 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-semibold rounded-lg hover:shadow-lg transition-all"
+                  >
+                    � Quiz Mode
+                  </button>
+                  <button
+                    onClick={startMotionGameMode}
+                    className="px-3 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white text-sm font-semibold rounded-lg hover:shadow-lg transition-all"
+                  >
+                    🎥 Motion Games
                   </button>
                 </div>
                 <p className="text-gray-600">
@@ -813,8 +1063,73 @@ export default function Home() {
               </div>
             </div>
           )}
+
+          {/* Motion Game Stage */}
+          {currentStage === 'motion-game' && (
+            <div className="space-y-6">
+              <div className="text-center">
+                <h2 className="text-3xl font-bold text-gray-800 mb-2">
+                  🎥 {theme} Motion Games
+                </h2>
+                <div className="flex justify-center space-x-3 mb-4">
+                  <button
+                    onClick={() => setCurrentStage('mode-select')}
+                    className="px-3 py-2 bg-gradient-to-r from-gray-500 to-gray-600 text-white text-sm font-semibold rounded-lg hover:shadow-lg transition-all"
+                  >
+                    🔄 Change Mode
+                  </button>
+                  <button
+                    onClick={startQuizMode}
+                    className="px-3 py-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-sm font-semibold rounded-lg hover:shadow-lg transition-all"
+                  >
+                    � Quiz Mode
+                  </button>
+                  <button
+                    onClick={startMinigameMode}
+                    className="px-3 py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white text-sm font-semibold rounded-lg hover:shadow-lg transition-all"
+                  >
+                    🎮 Custom Game
+                  </button>
+                </div>
+                <p className="text-gray-600">
+                  👋 Wave & move to solve math! 📹 Camera needed for motion detection.
+                </p>
+              </div>
+
+              {/* Motion Game Container */}
+              <div className="bg-white border-2 border-gray-200 rounded-lg overflow-hidden">
+                <div className="bg-gray-50 px-4 py-2 flex justify-between items-center">
+                  <h3 className="font-semibold text-gray-800">🎥 Motion-Based Math Games</h3>
+                  <div className="text-sm text-gray-600">
+                    Camera required • Make sure you have good lighting
+                  </div>
+                </div>
+                <div id="motion-game-container" style={{ minHeight: '600px' }}>
+                  {/* Motion game controller will be injected here */}
+                </div>
+              </div>
+
+              <div className="text-center pt-4">
+                <button
+                  onClick={resetQuiz}
+                  className="px-6 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  🔄 Start New Quest
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Loading Animation */}
+      {(uploading || chatLoading || gameLoading || motionGameLoading) && (
+        <LoadingAnimation 
+          type={loadingType} 
+          theme={theme} 
+          message={loadingMessage}
+        />
+      )}
     </div>
   );
 }

@@ -66,7 +66,7 @@ async def generate_image_drawthings(
             "prompt": prompt,
             "negative_prompt": "(worst quality, low quality, normal quality, (variations):1.4), blur:1.5",
             "seed": -1,
-            "steps": 20,
+            "steps": 15,
             "guidance_scale": 4,
             "batch_count": 1,  # Generate only one image
             "width": width,
@@ -217,7 +217,7 @@ async def generate_image(
     try:
         # Format configurations
         formats = {
-            "default": (512, 512),
+            "default": (256, 256),
             "square": (512, 512),
             "landscape": (768, 512),
             "landscape_large": (1024, 768),

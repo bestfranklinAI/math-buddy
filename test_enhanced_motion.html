@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Motion Detection Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        #gameCanvas {
+            border: 3px solid #fff;
+            border-radius: 10px;
+            max-width: 100%;
+            background: rgba(0,0,0,0.2);
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 5px;
+        }
+        .debug-info {
+            text-align: left;
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Enhanced Motion Detection Test</h1>
+        <p>This test verifies that our OpenCV fixes are working correctly.</p>
+        
+        <div class="controls">
+            <button id="startBtn">Start Motion Detection</button>
+            <button id="stopBtn" disabled>Stop Detection</button>
+            <button id="debugBtn">Toggle Debug Mode</button>
+        </div>
+        
+        <div class="status">
+            <div id="status">Click "Start Motion Detection" to begin</div>
+            <div id="handInfo">No hand detected</div>
+        </div>
+        
+        <canvas id="gameCanvas" width="640" height="480"></canvas>
+        
+        <div class="debug-info" id="debugInfo" style="display: none;">
+            <h3>Debug Information:</h3>
+            <div id="debugOutput">Debug mode disabled</div>
+        </div>
+    </div>
+
+    <!-- Load OpenCV.js -->
+    <script async src="https://docs.opencv.org/4.5.0/opencv.js" onload="onOpenCvReady()" onerror="onOpenCvError()"></script>
+    
+    <!-- Load our motion detection classes -->
+    <script src="frontend/public/motion-games/enhanced-motion-detector.js"></script>
+    
+    <script>
+        let motionDetector = null;
+        let isOpenCvReady = false;
+        let debugMode = false;
+        
+        // OpenCV loading callbacks
+        function onOpenCvReady() {
+            console.log('OpenCV.js is ready');
+            isOpenCvReady = true;
+            document.getElementById('status').textContent = 'OpenCV loaded successfully! Ready to start.';
+        }
+        
+        function onOpenCvError() {
+            console.error('Failed to load OpenCV.js');
+            document.getElementById('status').textContent = 'Failed to load OpenCV. Will use basic motion detection.';
+        }
+        
+        // Initialize motion detector
+        function initializeMotionDetector() {
+            const canvas = document.getElementById('gameCanvas');
+            
+            motionDetector = new EnhancedMotionDetector();
+            
+            // Set up motion callback
+            motionDetector.setMotionCallback((handData) => {
+                updateHandInfo(handData);
+                
+                if (debugMode) {
+                    updateDebugInfo(handData);
+                }
+            });
+            
+            return motionDetector.initialize(canvas);
+        }
+        
+        // Update hand information display
+        function updateHandInfo(handData) {
+            const handInfoDiv = document.getElementById('handInfo');
+            
+            if (handData) {
+                handInfoDiv.innerHTML = `
+                    <strong>Hand Detected!</strong><br>
+                    Position: (${Math.round(handData.centerX)}, ${Math.round(handData.centerY)})<br>
+                    Fingers: ${handData.fingerCount || 'N/A'}<br>
+                    Confidence: ${(handData.confidence * 100).toFixed(1)}%
+                `;
+            } else {
+                handInfoDiv.textContent = 'No hand detected';
+            }
+        }
+        
+        // Update debug information
+        function updateDebugInfo(handData) {
+            const debugOutput = document.getElementById('debugOutput');
+            
+            if (handData) {
+                debugOutput.innerHTML = `
+                    <strong>Detection Method:</strong> ${isOpenCvReady ? 'OpenCV Enhanced' : 'Basic Motion'}<br>
+                    <strong>Raw Data:</strong><br>
+                    • Center: (${handData.centerX.toFixed(2)}, ${handData.centerY.toFixed(2)})<br>
+                    • Area: ${handData.area || 'N/A'}<br>
+                    • Bounding Box: ${JSON.stringify(handData.boundingBox || {})}<br>
+                    • Finger Count: ${handData.fingerCount || 'N/A'}<br>
+                    • Confidence: ${handData.confidence.toFixed(3)}<br>
+                    <strong>Timestamp:</strong> ${new Date().toLocaleTimeString()}
+                `;
+            } else {
+                debugOutput.innerHTML = `
+                    <strong>Detection Method:</strong> ${isOpenCvReady ? 'OpenCV Enhanced' : 'Basic Motion'}<br>
+                    <strong>Status:</strong> No motion detected<br>
+                    <strong>Timestamp:</strong> ${new Date().toLocaleTimeString()}
+                `;
+            }
+        }
+        
+        // Event handlers
+        document.getElementById('startBtn').addEventListener('click', async () => {
+            try {
+                document.getElementById('status').textContent = 'Initializing motion detection...';
+                
+                const success = await initializeMotionDetector();
+                
+                if (success) {
+                    motionDetector.start();
+                    document.getElementById('status').textContent = 'Motion detection active! Wave your hand in front of the camera.';
+                    document.getElementById('startBtn').disabled = true;
+                    document.getElementById('stopBtn').disabled = false;
+                } else {
+                    document.getElementById('status').textContent = 'Failed to initialize motion detection. Please check camera permissions.';
+                }
+            } catch (error) {
+                console.error('Error starting motion detection:', error);
+                document.getElementById('status').textContent = 'Error: ' + error.message;
+            }
+        });
+        
+        document.getElementById('stopBtn').addEventListener('click', () => {
+            if (motionDetector) {
+                motionDetector.stop();
+                document.getElementById('status').textContent = 'Motion detection stopped.';
+                document.getElementById('handInfo').textContent = 'No hand detected';
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('stopBtn').disabled = true;
+            }
+        });
+        
+        document.getElementById('debugBtn').addEventListener('click', () => {
+            debugMode = !debugMode;
+            const debugInfo = document.getElementById('debugInfo');
+            const debugOutput = document.getElementById('debugOutput');
+            
+            if (debugMode) {
+                debugInfo.style.display = 'block';
+                debugOutput.textContent = 'Debug mode enabled';
+                if (motionDetector) {
+                    motionDetector.setDebugMode(true);
+                }
+            } else {
+                debugInfo.style.display = 'none';
+                debugOutput.textContent = 'Debug mode disabled';
+                if (motionDetector) {
+                    motionDetector.setDebugMode(false);
+                }
+            }
+        });
+        
+        // Handle page unload
+        window.addEventListener('beforeunload', () => {
+            if (motionDetector) {
+                motionDetector.stop();
+            }
+        });
+    </script>
+</body>
+</html>

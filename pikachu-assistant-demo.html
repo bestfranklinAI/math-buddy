@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pikachu Assistant Demo - Math Games</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .demo-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            margin-bottom: 30px;
+        }
+        
+        .description {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            color: white;
+            text-align: center;
+        }
+        
+        .demo-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+        
+        .demo-button {
+            background: linear-gradient(45deg, #FFD700, #FFA500);
+            border: none;
+            padding: 15px 25px;
+            border-radius: 25px;
+            color: #333;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        .demo-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        
+        #gameContainer {
+            width: 100%;
+            height: 600px;
+            border: 3px solid white;
+            border-radius: 15px;
+            position: relative;
+            overflow: hidden;
+            background: rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+        }
+        
+        .info-panel {
+            display: flex;
+            justify-content: space-between;
+            margin: 20px 0;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .feature-info {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            color: white;
+        }
+        
+        .pikachu-info {
+            background: linear-gradient(45deg, rgba(255,215,0,0.3), rgba(255,165,0,0.3));
+            border: 2px solid #FFD700;
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <h1>🎮 Pikachu Assistant Integration Demo</h1>
+        
+        <div class="description">
+            <h2>🌟 Meet Your New Math Learning Companion!</h2>
+            <p>Pikachu is now integrated into all our motion-based math games! Watch as he encourages you with a cheerful "Right!" whenever you get an answer correct, and provides motivation throughout your learning journey.</p>
+        </div>
+
+        <div class="pikachu-info">
+            <h3>⚡ Pikachu Assistant Features:</h3>
+            <ul style="text-align: left; margin: 15px 0;">
+                <li><strong>✅ Correct Answer Celebration:</strong> Shows "Right! ⭐" with a speech bubble</li>
+                <li><strong>🎮 Game Start Encouragement:</strong> Welcomes you when games begin</li>
+                <li><strong>💪 Motivational Messages:</strong> Provides encouragement throughout gameplay</li>
+                <li><strong>🎨 Smooth Animations:</strong> Bouncing, celebration animations, and speech bubbles</li>
+                <li><strong>📱 Always Visible:</strong> Positioned in the bottom-right corner of all games</li>
+                <li><strong>🔧 Smart Integration:</strong> Works with all existing motion games without breaking anything</li>
+            </ul>
+        </div>
+        
+        <div class="demo-buttons">
+            <button class="demo-button" onclick="showPikachuRight()">🌟 Show "Right!" Message</button>
+            <button class="demo-button" onclick="showPikachuStart()">🎮 Show Start Message</button>
+            <button class="demo-button" onclick="showPikachuEncouragement()">💪 Show Encouragement</button>
+            <button class="demo-button" onclick="showCustomMessage()">💬 Custom Message</button>
+            <button class="demo-button" onclick="loadEnhancedBubbleGame()">🫧 Load Enhanced Bubble Game</button>
+            <button class="demo-button" onclick="loadClassicBubbleGame()">🔴 Load Classic Bubble Game</button>
+        </div>
+        
+        <div class="info-panel">
+            <div>🎯 Assistant Status: <span id="assistant-status">Ready</span></div>
+            <div>🎮 Current Game: <span id="game-status">None</span></div>
+        </div>
+        
+        <!-- Game Container -->
+        <div id="gameContainer">
+            🎯 Click any button above to see Pikachu in action or load a game!
+        </div>
+        
+        <div class="feature-info">
+            <h3>🔧 Technical Integration Details:</h3>
+            <p><strong>Easy Integration:</strong> The Pikachu Assistant is automatically added to all game engines by simply including the script and adding one line to the constructor: <code>this.pikachuAssistant = new PikachuAssistant(containerId);</code></p>
+            
+            <p><strong>Automatic "Right!" Display:</strong> In each game's correct answer handler, we added: <code>this.pikachuAssistant.showRight();</code></p>
+            
+            <p><strong>Games Updated:</strong> Enhanced Bubble Pop Game, Classic Bubble Pop Game, Enhanced Physical Math Game, and ready for all other motion games.</p>
+            
+            <p><strong>File Location:</strong> The Pikachu image should be at <code>/pikachu.jpg</code> in your project root, and the assistant script is at <code>/frontend/src/motion-games/pikachu-assistant.js</code></p>
+        </div>
+    </div>
+
+    <!-- Load Motion Detection Classes and Pikachu Assistant -->
+    <script src="frontend/src/motion-games/pikachu-assistant.js"></script>
+    
+    <script>
+        let pikachuAssistant = null;
+        let currentGame = null;
+        
+        // Initialize standalone Pikachu assistant for demo
+        function initializePikachuDemo() {
+            if (!pikachuAssistant) {
+                pikachuAssistant = new PikachuAssistant('gameContainer');
+                pikachuAssistant.show();
+                document.getElementById('assistant-status').textContent = 'Active';
+            }
+        }
+        
+        // Demo functions
+        function showPikachuRight() {
+            initializePikachuDemo();
+            pikachuAssistant.showRight();
+        }
+        
+        function showPikachuStart() {
+            initializePikachuDemo();
+            pikachuAssistant.showStart();
+        }
+        
+        function showPikachuEncouragement() {
+            initializePikachuDemo();
+            pikachuAssistant.showEncouragement();
+        }
+        
+        function showCustomMessage() {
+            initializePikachuDemo();
+            const messages = [
+                "Keep going! 🌈",
+                "You're amazing! ⭐",
+                "Math is fun! 🎯",
+                "Great effort! 💪",
+                "Almost there! 🚀"
+            ];
+            const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+            pikachuAssistant.say(randomMessage);
+        }
+        
+        // Load script helper
+        async function loadScript(src) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+        
+        // Load enhanced bubble game
+        async function loadEnhancedBubbleGame() {
+            try {
+                document.getElementById('game-status').textContent = 'Loading Enhanced Bubble Game...';
+                
+                // Stop current game if any
+                if (currentGame && currentGame.stop) {
+                    currentGame.stop();
+                }
+                
+                // Load required scripts
+                await loadScript('frontend/src/motion-games/enhanced-motion-detector.js');
+                await loadScript('frontend/src/motion-games/theme-manager.js');
+                await loadScript('frontend/src/motion-games/enhanced-bubble-pop-game.js');
+                
+                // Clear container
+                const container = document.getElementById('gameContainer');
+                container.innerHTML = '';
+                
+                // Initialize the enhanced bubble game
+                if (window.EnhancedBubblePopGame) {
+                    currentGame = new EnhancedBubblePopGame('gameContainer', 'space');
+                    await currentGame.init();
+                    document.getElementById('game-status').textContent = 'Enhanced Bubble Game (with Pikachu!)';
+                    
+                    // Simulate some questions for demo
+                    setTimeout(() => {
+                        currentGame.loadQuestion("What is 5 + 3?", "8", ["6", "7", "9"]);
+                    }, 2000);
+                } else {
+                    throw new Error('EnhancedBubblePopGame not available');
+                }
+            } catch (error) {
+                console.error('Error loading Enhanced Bubble Game:', error);
+                document.getElementById('game-status').textContent = 'Error loading game';
+                document.getElementById('gameContainer').innerHTML = '❌ Error loading Enhanced Bubble Game. Check console for details.';
+            }
+        }
+        
+        // Load classic bubble game
+        async function loadClassicBubbleGame() {
+            try {
+                document.getElementById('game-status').textContent = 'Loading Classic Bubble Game...';
+                
+                // Stop current game if any
+                if (currentGame && currentGame.stop) {
+                    currentGame.stop();
+                }
+                
+                // Load required scripts
+                await loadScript('frontend/src/motion-games/motion-detector.js');
+                await loadScript('frontend/src/motion-games/theme-manager.js');
+                await loadScript('frontend/src/motion-games/bubble-pop-game.js');
+                
+                // Clear container
+                const container = document.getElementById('gameContainer');
+                container.innerHTML = '';
+                
+                // Initialize the classic bubble game
+                if (window.BubblePopGame) {
+                    currentGame = new BubblePopGame('gameContainer', 'space');
+                    await currentGame.init();
+                    document.getElementById('game-status').textContent = 'Classic Bubble Game (with Pikachu!)';
+                    
+                    // Simulate some questions for demo
+                    setTimeout(() => {
+                        currentGame.loadQuestion("What is 3 + 2?", "5", ["4", "6", "7"]);
+                    }, 2000);
+                } else {
+                    throw new Error('BubblePopGame not available');
+                }
+            } catch (error) {
+                console.error('Error loading Classic Bubble Game:', error);
+                document.getElementById('game-status').textContent = 'Error loading game';
+                document.getElementById('gameContainer').innerHTML = '❌ Error loading Classic Bubble Game. Check console for details.';
+            }
+        }
+        
+        // Initialize demo on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Pikachu Assistant Demo initialized!');
+            
+            // Show a welcome message after a short delay
+            setTimeout(() => {
+                initializePikachuDemo();
+                pikachuAssistant.say("Welcome to the Math Games! 🎮", 5000);
+            }, 1000);
+        });
+        
+        // Handle cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (currentGame && currentGame.stop) {
+                currentGame.stop();
+            }
+            if (pikachuAssistant) {
+                pikachuAssistant.destroy();
+            }
+        });
+    </script>
+</body>
+</html>
